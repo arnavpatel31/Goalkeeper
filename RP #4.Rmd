@@ -1,0 +1,108 @@
+---
+title: 'RP #4'
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r importdata}
+# load the libraries
+library(tidyverse)
+library(car)
+library(leaps)
+library(psych)
+```
+
+```{r fitforward}
+# Fit an empty model with only the response
+FitStart <- lm(SavePercentage ~ 1, data)
+
+# Fit a full model with all predictors
+FitAll <- lm(SavePercentage ~ Year + Season + WinPercentage + Shutouts, data)
+
+# Run the stepwise regression with forward selection based on the AIC criterion
+step(FitStart,direction="forward", scope = formula(FitAll))
+
+# Run the stepwise regression with backward elimination based on the AIC criteri on
+step(FitAll,direction="backward", scope = formula(FitStart))
+
+```
+
+```{r fitbackward}
+# Run the stepwise regression with backward elimination based on the AIC criterion
+step(FitAll,direction="backward", scope = formula(FitStart))
+```
+
+```{r bestfit}
+# Find the best model for each number of predictors (with 4 predictors maximum)
+models <- regsubsets(SavePercentage ~ Year + Season + WinPercentage + Shutouts, data, nvmax = 4)
+models.sum <- summary(models)
+
+# Create four plots within a 2x2 frame to compare the different criteria par(mfrow = c(2,2))
+# SSE
+plot(models.sum$rss, xlab = "Number of predictors", ylab = "SSE", type = "l") 
+
+# R2
+plot(models.sum$adjr2, xlab = "Number of predictors", ylab = "Adjusted RSq", type = "l")
+
+# Mallow's Cp
+plot(models.sum$cp, xlab = "Number of predictors", ylab = "Cp", type = "l")
+
+# BIC
+plot(models.sum$bic, xlab = "Number of predictors", ylab = "BIC", type = "l")
+```
+
+```{r bestdisplay}
+# Display the best model (selected predictors are indicated by *) for each number of predictors
+models.sum$outmat
+
+reg1 <- lm(SavePercentage ~ Year + Season + WinPercentage + Shutouts, data) 
+summary(reg1)
+```
+
+```{r diagnostics1}
+# Residuals versus Fitted Values
+data$resids <- residuals(reg1)
+data$predicted <- predict(reg1)
+ggplot(data, aes(x=predicted, y=resids)) + geom_point() + geom_hline(yintercept = 0, color = "blue") + labs(title ="Residuals versus Fitted values", x = "Fitted values", y = "Residuals")
+
+# Normal probability plot
+ggplot(data, aes(sample = resids)) + stat_qq() + stat_qq_line() + labs(title = "Normal Probability Plot", x = "Theoretical percentiles", y = "Sample percentiles")
+
+# Residuals versus WinPercentage
+ggplot(data, aes(x=WinPercentage, y=resids)) + geom_point() + geom_hline(yintercept=0, color = "blue") + labs(title ="Residuals versus Win Percentage", x = "Fitted values", y = "Residuals")
+# Residuals versus Shutouts
+ggplot(data, aes(x=Shutouts, y=resids)) + geom_point() + geom_hline(yintercept=0, color = "blue") + labs(title ="Residuals versus Shutouts", x = "Fitted values", y = "Residuals")
+```
+
+Note: There appears to be unequal variance on the residual plot with Shutouts; thus, we decided to use a non-linear transformation. We square-rooted the shutouts variable and the following regression is depicted below:
+
+```{r regression}
+# Fit the regression model with 2 predictors: Win Percentage, SQRT(Shutouts)
+reg2 <- lm(SavePercentage ~ WinPercentage + SqrtShutouts, data)
+# Display the summary table for the regression model
+summary(reg)
+```
+
+```{r diagnostics2}
+# Residuals versus Fitted Values
+data$resids <- residuals(reg)
+data$predicted <- predict(reg)
+ggplot(data, aes(x=predicted, y=resids)) + geom_point() + geom_hline(yintercept = 0, color = "blue") + labs(title ="Residuals versus Fitted values", x = "Fitted values", y = "Residuals")
+
+# Normal probability plot
+ggplot(data, aes(sample = resids)) + stat_qq() + stat_qq_line() + labs(title = "Normal Probability Plot", x = "Theoretical percentiles", y = "Sample percentiles")
+
+# Residuals versus WinPercentage
+ggplot(data, aes(x=WinPercentage, y=resids)) + geom_point() + geom_hline(yintercept=0, color = "blue") + labs(title ="Residuals versus Win Percentage", x = "Fitted values", y = "Residuals")
+# Residuals versus SQRT(Shutouts)
+ggplot(data, aes(x=SqrtShutouts, y=resids)) + geom_point() + geom_hline(yintercept=0, color = "blue") + labs(title ="Residuals versus SQRT(Shutouts)", x = "Fitted values", y = "Residuals")
+```
+
+```{r scatterplot}
+# correlaton and scatterplot matrix
+pairs.panels(data[c('WinPercentage','SqrtShutouts','SavePercentage')], method = "pearson", # correlation method
+hist.col = "#00AFBB", smooth = FALSE, density = FALSE, ellipses = FALSE)
+```
